@@ -133,7 +133,7 @@ class Ladder {
 	 */
 	getTop() {
 		let formatid = this.formatid;
-		let name = Tools.getFormat(formatid).name;
+		let name = Dex.getFormat(formatid).name;
 		return this.ladder.then(ladder => {
 			let buf = `<h3>${name} Top 100</h3>`;
 			buf += `<table>`;
@@ -272,11 +272,11 @@ class Ladder {
 
 				let reasons = '' + (Math.round(p1newElo) - Math.round(p1elo)) + ' for ' + (p1score > 0.9 ? 'winning' : (p1score < 0.1 ? 'losing' : 'tying'));
 				if (reasons.charAt(0) !== '-') reasons = '+' + reasons;
-				room.addRaw(Tools.html`${p1name}'s rating: ${Math.round(p1elo)} &rarr; <strong>${Math.round(p1newElo)}</strong><br />(${reasons})`);
+				room.addRaw(Chat.html`${p1name}'s rating: ${Math.round(p1elo)} &rarr; <strong>${Math.round(p1newElo)}</strong><br />(${reasons})`);
 
 				reasons = '' + (Math.round(p2newElo) - Math.round(p2elo)) + ' for ' + (p1score > 0.9 ? 'losing' : (p1score < 0.1 ? 'winning' : 'tying'));
 				if (reasons.charAt(0) !== '-') reasons = '+' + reasons;
-				room.addRaw(Tools.html`${p2name}'s rating: ${Math.round(p2elo)} &rarr; <strong>${Math.round(p2newElo)}</strong><br />(${reasons})`);
+				room.addRaw(Chat.html`${p2name}'s rating: ${Math.round(p2elo)} &rarr; <strong>${Math.round(p2newElo)}</strong><br />(${reasons})`);
 
 				room.update();
 			} catch (e) {
@@ -286,7 +286,7 @@ class Ladder {
 				room.update();
 			}
 
-			if (!Tools.getFormat(formatid).noLog) {
+			if (!Dex.getFormat(formatid).noLog) {
 				room.logBattle(p1score, p1newElo, p2newElo);
 			}
 		});
@@ -313,8 +313,8 @@ class Ladder {
 	 */
 	static visualizeAll(username) {
 		let ratings = [];
-		for (let i in Tools.data.Formats) {
-			if (Tools.data.Formats[i].searchShow) {
+		for (let i in Dex.formats) {
+			if (Dex.formats[i].searchShow) {
 				ratings.push(Ladders(i).visualize(username));
 			}
 		}

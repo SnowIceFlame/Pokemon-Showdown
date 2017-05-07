@@ -4,8 +4,7 @@ const assert = require('assert');
 const path = require('path');
 const fs = require('fs');
 const Module = require('module');
-
-const mock = require('mock-fs');
+const mock = require('mock-fs-require-fix');
 
 const noop = () => {};
 
@@ -21,31 +20,14 @@ function getDirTypedContentsSync(dir, forceType) {
 function init(callback) {
 	require('./../app');
 
-	// Run the battle engine in the main process to keep our sanity
-	let BattleEngine = global.BattleEngine = require('./../battle-engine');
-	for (let listener of process.listeners('message')) {
-		process.removeListener('message', listener);
-	}
-
-	// Turn IPC methods into no-op
-	BattleEngine.Battle.prototype.receive = noop;
-
-	let Simulator = global.Simulator;
-	Simulator.Battle.prototype.send = noop;
-	Simulator.Battle.prototype.receive = noop;
-	for (let process of Simulator.SimulatorProcess.processes) {
+	Rooms.RoomBattle.prototype.send = noop;
+	Rooms.RoomBattle.prototype.receive = noop;
+	for (let process of Rooms.SimulatorProcess.processes) {
 		// Don't crash -we don't care of battle child processes.
 		process.process.on('error', noop);
 	}
 
 	LoginServer.disabled = true;
-
-	// Deterministic tests
-	BattleEngine.Battle.prototype._init = BattleEngine.Battle.prototype.init;
-	BattleEngine.Battle.prototype.init = function (roomid, formatarg, rated) {
-		this._init(roomid, formatarg, rated);
-		this.seed = this.startingSeed = [0x09d56, 0x08642, 0x13656, 0x03653];
-	};
 
 	// Disable writing to modlog
 	Rooms.Room.prototype.modlog = noop;
@@ -100,39 +82,6 @@ before('initialization', function (done) {
 			'chat': {}, 'ladderip': {}, 'modlog': {}, 'repl': {},
 			'lastbattle.txt': '0',
 		},
-	};
-
-	// Node's module loading system should be backed up by the real file system.
-	Module.__resolveFilename__ = Module._resolveFilename;
-	Module._resolveFilename = function (request, parent) {
-		if (request === 'fs') return this.__resolveFilename__(request, parent);
-		mock.restore();
-		try {
-			return this.__resolveFilename__(request, parent);
-		} finally {
-			mock(fsSandbox);
-		}
-	};
-	for (let ext in Module._extensions) {
-		let defaultLoader = Module._extensions[ext];
-		Module._extensions[ext] = function (module, filename) {
-			mock.restore();
-			try {
-				return defaultLoader(module, filename);
-			} finally {
-				mock(fsSandbox);
-			}
-		};
-	}
-	Module.prototype.__compile__ = Module.prototype._compile;
-	Module.prototype._compile = function (content, filename) {
-		// Use the sandbox to evaluate the code in our modules.
-		mock(fsSandbox);
-		try {
-			return this.__compile__(content, filename);
-		} finally {
-			mock.restore();
-		}
 	};
 
 	// `watchFile` is unsupported and throws with mock-fs

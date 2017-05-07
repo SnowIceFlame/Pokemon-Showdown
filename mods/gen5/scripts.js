@@ -1,20 +1,21 @@
 'use strict';
 
 exports.BattleScripts = {
+	inherit: 'gen6',
 	gen: 5,
 	randomSet: function (template, slot, teamDetails) {
 		if (slot === undefined) slot = 1;
 		let baseTemplate = (template = this.getTemplate(template));
-		let name = template.name;
+		let species = template.species;
 
 		if (!template.exists || (!template.randomBattleMoves && !template.learnset)) {
 			template = this.getTemplate('unown');
 
-			let err = new Error('Template incompatible with random battles: ' + name);
-			require('./../../crashlogger')(err, 'The randbat set generator');
+			let err = new Error('Template incompatible with random battles: ' + species);
+			require('../crashlogger')(err, 'The gen 5 randbat set generator');
 		}
 
-		if (template.battleOnly) name = template.baseSpecies;
+		if (template.battleOnly) species = template.baseSpecies;
 
 		let movePool = (template.randomBattleMoves ? template.randomBattleMoves.slice() : Object.keys(template.learnset));
 		let moves = [];
@@ -452,8 +453,8 @@ exports.BattleScripts = {
 		}
 
 		item = 'Leftovers';
-		if (template.requiredItem) {
-			item = template.requiredItem;
+		if (template.requiredItems) {
+			item = template.requiredItems[this.random(template.requiredItems.length)];
 
 		// First, the extra high-priority items
 		} else if (template.species === 'Marowak') {
@@ -604,7 +605,8 @@ exports.BattleScripts = {
 		}
 
 		return {
-			name: name,
+			name: template.baseSpecies,
+			species: species,
 			moves: moves,
 			ability: ability,
 			evs: evs,

@@ -20,7 +20,7 @@
  *   rooms.js. There's also a global room which every user is in, and
  *   handles miscellaneous things like welcoming the user.
  *
- * Tools - from tools.js
+ * Dex - from sim/dex.js
  *
  *   Handles getting data about Pokemon, items, etc.
  *
@@ -28,13 +28,9 @@
  *
  *   Handles Elo rating tracking for players.
  *
- * Simulator - from simulator.js
+ * Chat - from chat.js
  *
- *   Used to access the simulator itself.
- *
- * CommandParser - from command-parser.js
- *
- *   Parses text commands like /me
+ *   Handles chat and parses chat commands like /me and /ban
  *
  * Sockets - from sockets.js
  *
@@ -49,21 +45,11 @@
 const fs = require('fs');
 const path = require('path');
 
-/*********************************************************
- * Make sure we have everything set up correctly
- *********************************************************/
-
-// Make sure our dependencies are available, and install them if they
-// aren't
-
+// Check for dependencies
 try {
 	require.resolve('sockjs');
 } catch (e) {
-	if (require.main !== module) throw new Error("Dependencies unmet");
-
-	let command = 'npm install --production';
-	console.log('Installing dependencies: `' + command + '`...');
-	require('child_process').spawnSync('sh', ['-c', command], {stdio: 'inherit'});
+	throw new Error("Dependencies unmet; run npm install");
 }
 
 /*********************************************************
@@ -105,8 +91,8 @@ if (Config.watchconfig) {
 
 global.Monitor = require('./monitor');
 
-global.Tools = require('./tools');
-global.toId = Tools.getId;
+global.Dex = require('./sim/dex');
+global.toId = Dex.getId;
 
 global.LoginServer = require('./loginserver');
 
@@ -116,15 +102,13 @@ global.Users = require('./users');
 
 global.Punishments = require('./punishments');
 
+global.Chat = require('./chat');
+
 global.Rooms = require('./rooms');
 
 delete process.send; // in case we're a child process
 global.Verifier = require('./verifier');
 Verifier.PM.spawn();
-
-global.CommandParser = require('./command-parser');
-
-global.Simulator = require('./simulator');
 
 global.Tournaments = require('./tournaments');
 
@@ -134,15 +118,12 @@ Dnsbl.loadDatacenters();
 if (Config.crashguard) {
 	// graceful crash - allow current battles to finish before restarting
 	process.on('uncaughtException', err => {
-		let crashMessage = require('./crashlogger')(err, 'The main process');
-		if (crashMessage !== 'lockdown') return;
-		let stack = Tools.escapeHTML(err.stack).split("\n").slice(0, 2).join("<br />");
-		if (Rooms.lobby) {
-			Rooms.lobby.addRaw('<div class="broadcast-red"><b>THE SERVER HAS CRASHED:</b> ' + stack + '<br />Please restart the server.</div>');
-			Rooms.lobby.addRaw('<div class="broadcast-red">You will not be able to start new battles until the server restarts.</div>');
-			Rooms.lobby.update();
+		let crashType = require('./crashlogger')(err, 'The main process');
+		if (crashType === 'lockdown') {
+			Rooms.global.startLockdown(err);
+		} else {
+			Rooms.global.reportCrash(err);
 		}
-		Rooms.global.lockdown = true;
 	});
 	process.on('unhandledRejection', err => {
 		throw err;
@@ -172,10 +153,6 @@ if (require.main === module) {
 /*********************************************************
  * Set up our last global
  *********************************************************/
-
-// Generate and cache the format list.
-Tools.includeFormats();
-Rooms.global.formatListText = Rooms.global.getFormatListText();
 
 global.TeamValidator = require('./team-validator');
 TeamValidator.PM.spawn();

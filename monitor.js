@@ -25,6 +25,15 @@ class TimedCounter extends Map {
 	}
 }
 
+// Config.loglevel is:
+// 0 = everything
+// 1 = debug (same as 0 for now)
+// 2 = notice (default)
+// 3 = warning
+// (4 is currently unused)
+// 5 = supposedly completely silent, but for now a lot of PS output doesn't respect loglevel
+if (Config.loglevel === undefined) Config.loglevel = 2;
+
 const Monitor = module.exports = {
 
 	/*********************************************************
@@ -50,13 +59,13 @@ const Monitor = module.exports = {
 		}
 	},
 	debug: function (text) {
-		// console.log(text);
+		if (Config.loglevel <= 1) console.log(text);
 	},
 	warn: function (text) {
-		console.log(text);
+		if (Config.loglevel <= 3) console.log(text);
 	},
 	notice: function (text) {
-		console.log(text);
+		if (Config.loglevel <= 2) console.log(text);
 	},
 
 	/*********************************************************
@@ -85,13 +94,13 @@ const Monitor = module.exports = {
 		let count = val[0], duration = val[1];
 		name = (name ? ': ' + name : '');
 		if (count === 500) {
-			this.adminlog('[ResourceMonitor] IP ' + ip + ' banned for cflooding (' + count + ' times in ' + Tools.toDurationString(duration) + name + ')');
+			this.adminlog('[ResourceMonitor] IP ' + ip + ' banned for cflooding (' + count + ' times in ' + Chat.toDurationString(duration) + name + ')');
 			return true;
 		} else if (count > 500) {
 			if (count % 500 === 0) {
 				let c = count / 500;
 				if (c === 2 || c === 4 || c === 10 || c === 20 || c % 40 === 0) {
-					this.adminlog('[ResourceMonitor] IP ' + ip + ' still cflooding (' + count + ' times in ' + Tools.toDurationString(duration) + name + ')');
+					this.adminlog('[ResourceMonitor] IP ' + ip + ' still cflooding (' + count + ' times in ' + Chat.toDurationString(duration) + name + ')');
 				}
 			}
 			return true;
@@ -104,10 +113,10 @@ const Monitor = module.exports = {
 		let val = this.battles.increment(ip, 30 * 60 * 1000);
 		let count = val[0], duration = val[1];
 		name = (name ? ': ' + name : '');
-		if (duration < 5 * 60 * 1000 && count % 15 === 0) {
-			this.adminlog('[ResourceMonitor] IP ' + ip + ' has battled ' + count + ' times in the last ' + Tools.toDurationString(duration) + name);
-		} else if (count % 75 === 0) {
-			this.adminlog('[ResourceMonitor] IP ' + ip + ' has battled ' + count + ' times in the last ' + Tools.toDurationString(duration) + name);
+		if (duration < 5 * 60 * 1000 && count % 30 === 0) {
+			this.adminlog('[ResourceMonitor] IP ' + ip + ' has battled ' + count + ' times in the last ' + Chat.toDurationString(duration) + name);
+		} else if (count % 150 === 0) {
+			this.adminlog('[ResourceMonitor] IP ' + ip + ' has battled ' + count + ' times in the last ' + Chat.toDurationString(duration) + name);
 		}
 	},
 	/**
@@ -116,6 +125,7 @@ const Monitor = module.exports = {
 	countPrepBattle: function (ip, connection) {
 		let count = this.battlePreps.increment(ip, 3 * 60 * 1000)[0];
 		if (count > 12) {
+			if (Punishments.sharedIps.has(ip) && count < 120) return;
 			connection.popup(`Due to high load, you are limited to 12 battles and team validations every 3 minutes.`);
 			return true;
 		}
@@ -155,7 +165,7 @@ const Monitor = module.exports = {
 		for (let i in this.networkUse) {
 			buf += '' + this.networkUse[i] + '\t' + this.networkCount[i] + '\t' + i + '\n';
 		}
-		fs.writeFile(path.resolve(__dirname, 'logs/networkuse.tsv'), buf);
+		fs.writeFile(path.resolve(__dirname, 'logs/networkuse.tsv'), buf, () => {});
 	},
 	clearNetworkUse: function () {
 		if (Config.emergency) {
